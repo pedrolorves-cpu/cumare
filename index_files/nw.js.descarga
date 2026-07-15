@@ -1,0 +1,538 @@
+function lockBodyScroll() {
+  $("html, body").addClass('ff-padded-show');
+}
+
+function unlockBodyScroll() {
+  $("html, body").removeClass('ff-padded-show');
+  $("body").css({ top: '', width: '' });
+}
+
+$(document).on('click', '[data-nw-toggle="FF"]', function() {
+	$this = $(this);
+	$($this.attr("data-nw-target")).toggleClass('active');
+	if ($this.attr("data-nw-FF") != 'padded') {
+		$("body").toggleClass('ff-show');
+	}else {
+    if ($("body").hasClass('ff-padded-show')) {
+      unlockBodyScroll();
+      localStorage.setItem('cart', '');
+    } else {
+      lockBodyScroll();
+      localStorage.setItem('cart', 'show');
+    }
+	}
+});
+function removeCart() {
+  localStorage.setItem('cart', '');
+  $('.nw-ffr').removeClass('active');
+  unlockBodyScroll();
+}
+function showCart() {
+    lockBodyScroll();
+    localStorage.setItem('cart', 'show');
+    $("#menu-cart").addClass('active');
+}
+
+/* Cerrar FFL pisando el fondo */
+$(document).on('click', '#background-ff, .nw-ffl a', function() {
+  $('.nw-ffl').removeClass('active');
+  $("body").removeClass('ff-show');
+});
+$(document).on('click', '#background-ff, .nw-ffr .btn-close', function() {
+  removeCart();
+});
+
+
+$(document).ready(function() {
+  
+  $(document).on('change', '.input-quantity', function() {
+    $("input[name='" + $(this).attr("name") + "']").val($(this).val());
+    var $this = $(this);
+    clearTimeout(timeOut);
+    var timeOut = setTimeout(function() {
+      cart.updateNW($this.serialize());
+      $(".input-quantity[name='" + $this.attr("name") + "']").val($this.val());
+    }, 1000);
+    return false;
+  });
+  $(document).on('scroll', function() {
+  $('.fixed-by-scroll').each(function() {
+    margin = 0;
+    $this = $(this);
+    parentOriginalH = $this.parent().innerHeight();
+      if($(window).width() > 1200 && $this.height() < $(window).height()) {
+        if ($('html, body').scrollTop() > $this.parent().offset().top && $this.height() < parentOriginalH) {
+          margin = $('html, body').scrollTop() - $this.parent().offset().top +10;
+          if(($this.height() + margin) >= parentOriginalH) {
+            margin = parentOriginalH - $this.height();
+          }
+        }else  {
+          margin = 0;
+        }
+        $this.css({
+          'margin-top': margin
+        });
+      }else {
+        $this.css({
+          'margin-top': 0
+        });
+      }
+    });
+  });
+});
+function  changeQty(factor, element) {
+    var input = element.parent().find('input[name^="quantity"]'),
+        val = parseInt(input.val()) || 0,
+        maxQty = parseInt(input.attr('max')) || 0;
+    
+    if (factor == '+') {
+      var newVal = val + 1;
+      // Validar máximo si existe
+      if (maxQty > 0 && newVal > maxQty) {
+        newVal = maxQty;
+        // Mostrar mensaje solo si estamos en AliExpress
+        if (typeof makeAlert === 'function' && input.closest('#product').length > 0) {
+          makeAlert('Cantidad disponible: ' + maxQty, 'warning');
+        }
+      }
+      input.val(newVal).trigger('change');
+    }else if (factor == '-' && val > 1) {
+        input.val(val - 1).trigger('change');
+    }
+}
+
+
+
+
+function openModal(urlm,size,retried) {
+	$class = "modal-dialog modal-dialog-centered modal-dialog-scrollable"
+	if (size) {
+		if (size == "sm") {
+		 $("#generalModal .modal-dialog").removeClass().addClass($class + " modal-sm");
+		}
+		if (size == "md") {
+		 $("#generalModal .modal-dialog").removeClass().addClass($class + "");
+		}
+		if (size == "lg") {
+		 $("#generalModal .modal-dialog").removeClass().addClass($class + " modal-lg");
+		}
+		if (size == "xl") {
+		 $("#generalModal .modal-dialog").removeClass().addClass($class + " modal-xl");
+		}
+	} else {
+		$("#generalModal .modal-dialog").removeClass().addClass($class + "");
+	}
+
+	$("#generalModal").modal("show");
+    var modalUrl = urlm;
+    // Normaliza URLs absolutas para evitar fallos CORS
+    // cuando config_url/config_ssl apunta a otro host.
+    if (/^https?:\/\//i.test(modalUrl)) {
+      try {
+        var parsedModalUrl = new URL(modalUrl, window.location.origin);
+        modalUrl = parsedModalUrl.pathname + parsedModalUrl.search + parsedModalUrl.hash;
+      } catch (e) {}
+    }
+    if (modalUrl.indexOf('modal=') === -1) {
+      modalUrl += (modalUrl.indexOf('?') === -1 ? '?modal=true' : '&modal=true');
+    }
+    $.ajax({
+        type: 'GET',
+        url: modalUrl,
+        beforeSend : function() {
+            $('#generalModal .modal-body').html('').makeLoader('start');
+        },
+        // Mostramos un mensaje con la respuesta de PHP
+        success: function(data) {
+          $('#generalModal .modal-body').html(data);
+          $('#generalModal .modal-body').makeLoader('stop');
+       
+        },
+        error: function() {
+          // Algunos entornos bloquean la variante con modal=true.
+          // Reintentar una vez con la URL base mejora compatibilidad.
+          if (!retried) {
+            var fallbackUrl = modalUrl.replace(/([?&])modal=true(&|$)/, '$1').replace(/[?&]$/, '');
+            return openModal(fallbackUrl, size, true);
+          }
+          $('#generalModal .modal-body').makeLoader('stop');
+          $('#generalModal .modal-body').html('<div class="text-center py-4">No se pudo cargar este contenido. Te llevaremos a la página de recuperación.</div>');
+          makeAlert('No se pudo abrir el modal. Redirigiendo a recuperación...', 'warning');
+          window.setTimeout(function() {
+            window.location.href = 'index.php?route=account/forgotten';
+          }, 300);
+        }
+    });
+}
+function makeAlert(text, type, close = true) {
+	htmlX = '<div class="alert-nw ' + type + '">';
+    htmlX += '<div class="alert-body">' + text + '</div>';
+    htmlX += '<button type="type" class="like-a close" data-nw-dismiss="alert"><i class="fa fa-times"></i></button></div>';
+	if (close == true) {
+    	$(".alert-nw").addClass('alert-out');
+		  window.setTimeout(function() {
+		    $(".alert-nw").remove();
+		    $("#alert-nw-container").append(htmlX);
+		  }, 200);
+      $('body').addClass('alert-show');
+	}else {
+    $('body').addClass('alert-show');
+		$("#alert-nw-container").append(htmlX);
+	}
+}
+function makeAlertCustom(text, color, icon) {
+  htmlX = '<div class="alert-nw" style="border: 2px solid ' + color + ';box-shadow: 0 0 5px 0px ' + color + ';">';
+    htmlX += '<div class="alert-body"><img src="' + icon + '" class="alert-custom-icon" />' + text + '</div>';
+    htmlX += '<button type="type" class="like-a close" data-nw-dismiss="alert"><i class="fa fa-times"></i></button></div>';
+  if (close == true) {
+      $(".alert-nw").addClass('alert-out');
+      window.setTimeout(function() {
+        $(".alert-nw").remove();
+        $("#alert-nw-container").append(htmlX);
+      }, 600);
+      $('body').addClass('alert-show');
+  }else {
+    $('body').addClass('alert-show');
+    $("#alert-nw-container").append(htmlX);
+  }
+}
+function removeAlerts() {
+	$(".alert-nw").addClass('alert-out');
+	  window.setTimeout(function() {
+      $('body').removeClass('alert-show');
+	    $(".alert-nw").remove();
+	  }, 300);
+}
+function makeConfirm(msg = "Revise bien los datos antes de continuar", lastText = "¿Está seguro(a) que desea continuar?", duration = 10000) {
+  return new Promise((resolve, reject) => {
+    $("#confirm-msg").html(msg);
+      $("#confirm-msg").css("text-align", 'center');
+    $("#confirm-last-text").html(lastText);
+    $("#confirmModal").addClass('active');
+    var Wait = setTimeout(function() {
+      $("#confirmModal").removeClass('active');
+      resolve(false);
+    }, duration);
+    $(document).on('keydown', function(e) {
+      if (e.keyCode == 13) {
+        $("#confirmModal").removeClass('active');
+        resolve(true);
+        clearInterval(Wait);
+      }
+    });
+    $("#btn-confirm").on("click", function() {
+      $("#confirmModal").removeClass('active');
+      resolve(true);
+      clearInterval(Wait);
+    });
+    $("#btn-confirm-close").on("click", function() {
+      $("#confirmModal").removeClass('active');
+      clearInterval(Wait);
+      resolve(false);
+    });
+  });
+};
+(function ($) {
+  
+    $('.has-spinner').attr("disabled", false);
+    $.fn.buttonLoader = function (action) {
+        var self = $(this);
+        if (action == 'start') {
+            if ($(self).attr("disabled") == "disabled") {
+                return false;
+            }
+            $(self).attr("disabled", true);
+            $(self).attr('data-btn-text', $(self).html());
+            var text = 'Cargando...';
+            if($(self).attr('data-load-text') != undefined){
+                var text = $(self).attr('data-load-text');
+            }
+            $(self).html('<span class="spinner"><i class="fa fa-circle-o-notch fa-spin" title="button-loader"></i></span> '+text);
+            $(self).addClass('active');
+        }
+        if (action == 'stop') {
+            $(self).html($(self).attr('data-btn-text'));
+            $(self).removeClass('active');
+            $(self).attr("disabled", false);
+            $('.has-spinner').attr("disabled", false);
+        }
+    }
+    $.fn.makeLoader = function (action, data = "") {
+        var self = $(this),
+            height = 0,
+            htmlLoader = "";
+        if (action == 'start') {
+            // Evita overlays duplicados en llamadas repetidas
+            self.find(' > .maskLoader').remove();
+            self.find(' > *').css({'transition': '.3s','filter': 'blur(5px) grayscale()', 'opacity' : '.4'});
+            height = $(self).height();
+            htmlLoader = `<div class="maskLoader" style="height:` + height + `px">`;
+            htmlLoader += `<svg  width="51px" height="50px" viewBox="0 0 51 50">
+            <rect y="0" width="13" height="40" fill="#1976d255"><animate attributeName="height" values="40;10;40" begin="0s" dur="0.5s" repeatCount="indefinite" />
+            <animate attributeName="y" values="0;20;0" begin="0s" dur="0.5s" repeatCount="indefinite" /></rect>
+            <rect x="19" y="0" width="13" height="40" fill="#1976d2BB">
+            <animate attributeName="height" values="40;10;40" begin="0.2s" dur="0.5s" repeatCount="indefinite" /><animate attributeName="y" values="0;20;0" begin="0.2s" dur="0.5s" repeatCount="indefinite" /></rect>
+            <rect x="38" y="0" width="13" height="40" fill="#1976d2">
+            <animate attributeName="height" values="40;10;40" begin="0.4s" dur="0.5s" repeatCount="indefinite" /><animate attributeName="y" values="0;20;0" begin="0.4s" dur="0.5s" repeatCount="indefinite" /></rect>
+            </svg></div>`;
+            $(self).css('position','relative').append(htmlLoader);
+          }else if (action == 'stop') {
+          // Limpia overlay y restaura visibilidad de contenido
+          self.find(' > .maskLoader').remove();
+          self.find(' > *').css({'transition':'.2s all', 'filter': 'none', 'opacity': '1' });
+        }
+    };
+    $.fn.makeInputError = function (message) {
+        var self = $(this);
+        var html = '<div class="text-danger mt-2">';
+        html += message;
+        html += '</div>';
+        self.after(html);
+	}
+  $.fn.getData = function (Url = "") {
+      var $self = $(this);
+      if ($self.attr('data-nw-url')) {
+        Url = $self.attr('data-nw-url');
+      }else {
+        Url = window.location + " #" + $self.attr('id') + " > *";
+      }
+      // Normaliza URLs absolutas para evitar fallos CORS por diferencias de dominio
+      // (ej: www vs sin www) al usar jQuery.load en secciones internas.
+      if (typeof Url === 'string' && Url.length > 0) {
+        var parts = Url.split(' ');
+        var requestUrl = parts.shift();
+        if (/^https?:\/\//i.test(requestUrl)) {
+          try {
+            var parsed = new URL(requestUrl, window.location.origin);
+            requestUrl = parsed.pathname + parsed.search + parsed.hash;
+          } catch (e) {}
+        }
+        Url = requestUrl + (parts.length ? (' ' + parts.join(' ')) : '');
+      }
+      $self.makeLoader('start');
+      oldHtml = $self.html();
+      $self.load(Url, function(data, status, jq) {
+        if (status == 'error') {
+          $($self).makeLoader('stop');
+          $self.html(`
+            <div class="p-3 text-center">
+              <small class="text-muted d-block">No fue posible cargar esta sección.</small>
+              <a href="${Url.split(' ')[0]}" class="btn btn-link">Intentar en página completa</a>
+            </div>
+          `);
+          if (window.console && console.error) {
+            console.error('getData() error', {
+              url: Url,
+              statusText: jq && jq.statusText ? jq.statusText : status
+            });
+          }
+          makeAlert('Ha ocurrido un error al obtener la información', 'warning');          
+        }else {
+          // console.log(data);
+
+        }
+      });
+
+    }
+  $.fn.getDataV2 = function (Url = "") {
+      var $self = $(this);
+      if ($self.attr('data-nw-url')) {
+        Url = $self.attr('data-nw-url');
+      }else {
+        Url = window.location + " #" + $self.attr('id') + " > *";
+      }
+      $self.makeLoader('start');
+      oldHtml = $self.html();
+      $self.load(Url, function(data, status, jq) {
+        if (status == 'error') {
+          $($self).makeLoader('stop');
+          $($self).find(' > *:not(".try-again")').css({'filter': 'blur(1px)'});
+          $($self).append(`
+            <div class="try-again position-absolute w-100 p-4 start-0 text-center" style="top: ${$($self).height()/2 -43.5}px;" >
+            <div class="content-rounded bg-white rounded-3 mx-auto"  style="box-shadow: 0 0 5px #3332; max-width: 300px">
+            Error al cargar <button type="button" class="btn btn-primary mt-2 d-block mx-auto" onclick="$(this).parents('.try-again').remove();$('#${$self.attr('id')}').getDataV2('${Url}');">Reintentar</button>
+            </div>
+            </div>
+          `);
+        }else {
+          $self.html(oldHtml);
+          window.setTimeout(function() {
+
+            $self.find("> *").fadeOut(600, function() {
+                $self.html(data);
+
+                $self.find("> *").fadeOut(0);
+
+                $self.find("> *").fadeIn(600);
+            });
+          },600);
+
+        }
+      });
+
+    }
+  $.fn.getDataAJAX = function (Url = "") {
+      var $self = $(this);
+      if ($self.attr('data-nw-url')) {
+        Url = $self.attr('data-nw-url');
+      }else {
+        Url = window.location + " #" + $self.attr('id') + " > *";
+      }
+      $self.makeLoader('start');
+      oldHtml = $self.html();
+      $.ajax({
+        url: Url,
+        success: function (data) {
+            $self.find("> *").fadeOut(600, function() {
+                $self.html(data);
+                $self.find("> *").fadeOut(0);
+
+                $self.find("> *").fadeIn(600);
+            });
+        },
+        error: function () {
+          $($self).append(`
+            <div class="try-again position-absolute w-100 p-4 start-0 text-center" style="top: ${$($self).height()/2 -43.5}px;" >
+            <div class="content-rounded bg-white rounded-3 mx-auto"  style="box-shadow: 0 0 5px #3332; max-width: 300px">
+            Error al cargar <button type="button" class="btn btn-primary mt-2 d-block mx-auto" onclick="$(this).parents('.try-again').remove();$('#${$self.attr('id')}').getDataAJAX('${Url}');">Reintentar</button>
+            </div>
+            </div>
+          `);
+        }
+      })
+     
+
+    }
+    $.fn.focusBack = function (msg = "Atención", callback = function(){}) {
+      var id = $(this).attr('id');
+      var width = $(this).outerWidth();
+      var $this = $(this);
+      
+      // Crear backdrop si no existe
+      if ($('.backDropForFocus').length < 1) {
+        $('body').append('<div class="backDropForFocus"></div>');
+        $('.backDropForFocus').animate({ opacity: 1 }, 400);
+      }
+      
+      // Crear mensaje
+      var backDropMsg = '<div class="backDropForFocusMsg for-' + id + '">' + msg + '</div>';
+      $(this).append(backDropMsg);
+      
+      if (width < 300 || msg.length > 40) {
+        $('.backDropForFocusMsg.for-' + id).addClass('backDropForFocusMsg-sm');
+      }
+      
+      // Calcular posición del mensaje
+      var right = '100%';
+      var max_w = $(window).width() - $(this).width() - 100;
+      
+      if ($(this).width() * 1.2 > $(window).width()) {
+        right = 25;
+        max_w = '100%';
+      }
+      
+      if ($('.for-' + id).position().left < 50) {
+        right = 26;
+      }
+      
+      $('.backDropForFocusMsg').css({
+        'right': right,
+        'max-width': max_w 
+      });
+      
+      // Animar aparición del mensaje
+      window.setTimeout(function() {
+        $('.backDropForFocusMsg').animate({ opacity: 1 }, 500);
+      }, 400);
+      
+      // Scroll al elemento
+      var op1Scroll = $this.offset().top + $(this).outerHeight() - $(window).innerHeight() + 15;
+      var op2Scroll = $this.offset().top - 100 - 20;
+      $('html, body').delay(100).animate({
+        scrollTop: op1Scroll < op2Scroll ? op1Scroll : op2Scroll
+      }, 500);
+
+      // Guardar callback y aplicar clase
+      $(this).data('focusback-callback', callback);
+      $(this).addClass('focusedBD');
+      
+      // Listener para cerrar con el backdrop
+      $('.backDropForFocus').one('click', function() {
+        closeFocusedBD($this);
+      });
+      
+      // Listener para cerrar con resize
+      $(window).one('resize', function() {
+        closeFocusedBD($this);
+      });
+    }
+    
+})(jQuery);
+
+// Función helper para cerrar el focusedBD
+function closeFocusedBD($element) {
+  if (!$element || !$element.hasClass('focusedBD')) return;
+  
+  var callback = $element.data('focusback-callback');
+  
+  $('.backDropForFocusMsg').fadeOut(300, function() {
+    $(this).remove();
+    $('.backDropForFocus').fadeOut(200, function() {
+      $(this).remove();
+      $element.removeClass('focusedBD');
+      if (callback && typeof callback === 'function') {
+        callback();
+      }
+    });
+  });
+}
+
+// Listeners globales para cerrar focusedBD al interactuar con el elemento
+$(document).on('click', '.focusedBD', function(e) {
+  // No cerrar si el click fue en el mensaje de atención
+  if ($(e.target).closest('.backDropForFocusMsg').length > 0) {
+    return;
+  }
+  e.stopPropagation();
+  closeFocusedBD($(this));
+});
+
+$(document).on('change', '.focusedBD input, .focusedBD select', function(e) {
+  e.stopPropagation();
+  closeFocusedBD($(this).closest('.focusedBD'));
+});
+
+document.addEventListener("DOMContentLoaded", function (event) {
+  function createRipple(event) {
+    const button = event.currentTarget;
+
+    const circle = document.createElement("span");
+    const diameter = Math.max(button.clientWidth, button.clientHeight);
+    const radius = diameter / 2;
+    circle.style.width = circle.style.height = `${diameter}px`;
+    circle.style.left = `${event.pageX - $(button).offset().left - radius}px`;
+    circle.style.top = `${event.pageY - $(button).offset().top - radius}px`;
+    circle.classList.add("ripple");
+
+    const ripple = button.getElementsByClassName("ripple")[0];
+
+    if (ripple) {
+      ripple.remove();
+    }
+
+    button.appendChild(circle);
+  }
+  $(document).on('click', '.btn', function(e) {
+    createRipple(e);
+  });
+});
+$(document).on('click', '[data-nw-dismiss], #background-alert', function() {
+  removeAlerts();
+});
+function onlyNumberKey(evt) {
+  // Only ASCII character in that range allowed
+  var ASCIICode = (evt.which) ? evt.which : evt.keyCode
+  if (ASCIICode > 31 && (ASCIICode < 48 || ASCIICode > 57) && ASCIICode != 46)
+      return false;
+  return true;
+}
